@@ -1,16 +1,18 @@
 from itertools import product
 import random
 
-from proposer import explore, hypotheses, update
-from rules import candidates
+from proposer import explore, hypotheses, possible, update
+from rules import candidates, features
 from strategies import pick
-from world import step
+from world import key, step
 
 
-def solve(env, strategy="first", seed=0, conds=False, verbose=False):
+def solve(env, strategy="first", seed=0, feats=(), verbose=False):
+    feats = features(feats)
     rng = random.Random(seed)
     walls, goal, state = env.public()
-    hyps = list(product(*candidates(state["objs"], conds)))
+    hyps = list(product(*candidates(state["objs"], feats)))
+    most = len(hyps)
     if verbose:
         print(len(hyps), "hypotheses")
     while not state["done"] and env.steps < env.budget:
@@ -34,23 +36,31 @@ def solve(env, strategy="first", seed=0, conds=False, verbose=False):
                 break
     if verbose:
         print("done" if state["done"] else "failed", "in", env.steps, "steps, left:", hyps)
-    return state["done"], env.steps
+    return state["done"], env.steps, most
 
 
-def solve_proposing(env, strategy="first", seed=0, conds=False, verbose=False):
+def solve_proposing(env, strategy="first", seed=0, feats=(), verbose=False):
+    feats = features(feats)
     rng = random.Random(seed)
     walls, goal, state = env.public()
     cands = {k: None for k, o in state["objs"].items() if o["type"] == "door"}
+    start = key(state)
     history = []
+    most = 0
     while not state["done"] and env.steps < env.budget:
         if any(c == [] for c in cands.values()):
             if verbose:
                 print("no hypotheses left")
             break
         hyps = hypotheses(cands)
-        chosen = pick(strategy, walls, goal, state, hyps, rng)
+        most = max(most, len(hyps))
+        chosen = None
+        if possible(walls, goal, state, cands) is not None:
+            chosen = pick(strategy, walls, goal, state, hyps, rng)
         if chosen is None:
-            h, plan = None, explore(walls, goal, state, history)
+            h, plan = hyps[0], explore(walls, goal, state, history, feats, hyps[0])
+            if plan is None and "traps" in feats and key(state) != start:
+                h, plan = None, ["reset"]
             if plan is None:
                 if verbose:
                     print("nothing left to try")
@@ -65,8 +75,9 @@ def solve_proposing(env, strategy="first", seed=0, conds=False, verbose=False):
             if env.steps >= env.budget:
                 break
             new = env.step(a)
-            history.append((state, a, new))
-            update(walls, goal, cands, history, conds)
+            if a != "reset":
+                history.append((state, a, new))
+                update(walls, goal, cands, history, feats)
             state = new
             if h is not None and h not in hypotheses(cands):
                 if verbose:
@@ -74,4 +85,4 @@ def solve_proposing(env, strategy="first", seed=0, conds=False, verbose=False):
                 break
     if verbose:
         print("done" if state["done"] else "failed", "in", env.steps, "steps, candidates:", cands)
-    return state["done"], env.steps
+    return state["done"], env.steps, most

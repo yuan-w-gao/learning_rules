@@ -71,7 +71,10 @@ def step(walls, goal, state, action, rules):
             cobj, cprop, cvalue = cond
             if s["objs"][cobj][cprop] != cvalue:
                 continue
-        s["objs"][target][prop] = value
+        if value == "toggle":
+            s["objs"][target][prop] = not s["objs"][target][prop]
+        else:
+            s["objs"][target][prop] = value
     if s["agent"] == goal:
         s["done"] = True
     return s
