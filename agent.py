@@ -3,17 +3,16 @@ import random
 
 from rules import candidates
 from strategies import pick
-from world import load, step
+from world import step
 
 
-def solve(m, true_rules, strategy="first", seed=0, conds=False, verbose=False):
+def solve(env, strategy="first", seed=0, conds=False, verbose=False):
     rng = random.Random(seed)
-    walls, goal, state = load(m)
+    walls, goal, state = env.public()
     hyps = list(product(*candidates(state["objs"], conds)))
     if verbose:
         print(len(hyps), "hypotheses")
-    steps = 0
-    while not state["done"] and steps < 100:
+    while not state["done"] and env.steps < env.budget:
         chosen = pick(strategy, walls, goal, state, hyps, rng)
         if chosen is None:
             if verbose:
@@ -23,8 +22,9 @@ def solve(m, true_rules, strategy="first", seed=0, conds=False, verbose=False):
         if verbose:
             print("trying", h or "experiment", plan)
         for a in plan:
-            new = step(walls, goal, state, a, true_rules)
-            steps += 1
+            if env.steps >= env.budget:
+                break
+            new = env.step(a)
             hyps = [x for x in hyps if step(walls, goal, state, a, x) == new]
             state = new
             if h is not None and h not in hyps:
@@ -32,5 +32,5 @@ def solve(m, true_rules, strategy="first", seed=0, conds=False, verbose=False):
                     print("  wrong:", h)
                 break
     if verbose:
-        print("done" if state["done"] else "failed", "in", steps, "steps, left:", hyps)
-    return state["done"], steps
+        print("done" if state["done"] else "failed", "in", env.steps, "steps, left:", hyps)
+    return state["done"], env.steps

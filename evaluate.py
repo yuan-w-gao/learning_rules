@@ -2,6 +2,7 @@ import time
 
 from generator import generate
 from agent import solve
+from env import Env
 from strategies import STRATEGIES
 
 
@@ -13,7 +14,7 @@ def evaluate(n, world_conds=False, agent_conds=False, strategies=STRATEGIES):
         solved = []
         failed = []
         for seed, (m, rules) in enumerate(worlds):
-            ok, steps = solve(m, rules, strategy, seed, agent_conds)
+            ok, steps = solve(Env(m, rules), strategy, seed, agent_conds)
             if ok:
                 solved.append(steps)
             else:
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     for strategy in STRATEGIES:
         print()
         print(strategy)
-        solve(m, rules, strategy, verbose=True)
+        solve(Env(m, rules), strategy, verbose=True)
     print()
     fast = [s for s in STRATEGIES if s != "shortest"]
     evaluate(100)
