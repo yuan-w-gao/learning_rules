@@ -76,12 +76,12 @@ def key(state):
     return state["agent"], objs, state["done"]
 
 
-def bfs(walls, goal, start, rules):
+def bfs(walls, goal, start, rules, stop=lambda s: s["done"]):
     seen = {key(start)}
     q = deque([(start, [])])
     while q:
         s, path = q.popleft()
-        if s["done"]:
+        if stop(s):
             return path
         for a in ACTIONS:
             n = step(walls, goal, s, a, rules)
@@ -106,7 +106,44 @@ def candidates(objs):
     return options
 
 
+def run(walls, goal, state, plan, rules):
+    for a in plan:
+        state = step(walls, goal, state, a, rules)
+    return state
+
+
+def experiments(walls, goal, state, hyps):
+    out = []
+    for name, o in state["objs"].items():
+        if o["type"] == "door":
+            continue
+        path = bfs(walls, goal, state, [], lambda s, p=o["pos"]: s["agent"] == p)
+        if path is None:
+            continue
+        plans = [path + ["interact"]]
+        if path:
+            plans.append(path)
+        for plan in plans:
+            groups = {}
+            for h in hyps:
+                k = key(run(walls, goal, state, plan, h))
+                groups[k] = groups.get(k, 0) + 1
+            score = sum(g * g for g in groups.values()) / len(hyps)
+            if len(groups) > 1:
+                out.append((score, plan))
+    return out
+
+
 def pick(strategy, walls, goal, state, hyps, rng):
+    if strategy in ("info", "nearest"):
+        exps = experiments(walls, goal, state, hyps)
+        if exps:
+            if strategy == "info":
+                score, plan = min(exps, key=lambda e: (e[0], len(e[1])))
+            else:
+                score, plan = min(exps, key=lambda e: (len(e[1]), e[0]))
+            return None, plan
+        strategy = "first"
     if strategy == "shortest":
         best = None
         for h in list(hyps):
@@ -143,13 +180,13 @@ def solve(m, true_rules, strategy="first", seed=0, verbose=False):
             break
         h, plan = chosen
         if verbose:
-            print("trying", h, plan)
+            print("trying", h or "experiment", plan)
         for a in plan:
             new = step(walls, goal, state, a, true_rules)
             steps += 1
             hyps = [x for x in hyps if step(walls, goal, state, a, x) == new]
             state = new
-            if h not in hyps:
+            if h is not None and h not in hyps:
                 if verbose:
                     print("  wrong:", h)
                 break

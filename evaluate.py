@@ -3,7 +3,7 @@ import time
 from generator import generate
 from main import solve
 
-STRATEGIES = ["first", "random", "shortest"]
+STRATEGIES = ["first", "random", "shortest", "info", "nearest"]
 
 
 def evaluate(n):
