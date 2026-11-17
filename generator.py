@@ -1,10 +1,11 @@
 import random
 
-from main import bfs, candidates, load
+from main import bfs, candidates, conditions, load
 
 
-def generate(seed):
+def generate(seed, conds=False):
     rng = random.Random(seed)
+    crng = random.Random(f"{seed}-conds")
     w, h = 15, 6
     room1 = [(x, y) for x in range(1, 6) for y in range(1, h - 1)]
     room2 = [(x, y) for x in range(7, 11) for y in range(1, h - 1)]
@@ -29,6 +30,8 @@ def generate(seed):
         m = ["".join(row) for row in grid]
         walls, goal, state = load(m)
         rules = [rng.choice(r) for r in candidates(state["objs"])]
+        if conds:
+            rules = [r[:5] + (crng.choice(conditions(state["objs"])),) if crng.random() < 0.5 else r for r in rules]
         if bfs(walls, goal, state, rules) is None:
             continue
         if bfs(walls, goal, state, []) is not None:

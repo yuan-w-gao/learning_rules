@@ -63,9 +63,14 @@ def step(walls, goal, state, action, rules):
         for name, o in s["objs"].items():
             if o["pos"] == nxt:
                 events.append(("enter", name))
-    for event, obj, target, prop, value in rules:
-        if (event, obj) in events:
-            s["objs"][target][prop] = value
+    for event, obj, target, prop, value, cond in rules:
+        if (event, obj) not in events:
+            continue
+        if cond is not None:
+            cobj, cprop, cvalue = cond
+            if s["objs"][cobj][cprop] != cvalue:
+                continue
+        s["objs"][target][prop] = value
     if s["agent"] == goal:
         s["done"] = True
     return s
@@ -93,7 +98,16 @@ def bfs(walls, goal, start, rules, stop=lambda s: s["done"]):
     return None
 
 
-def candidates(objs):
+def conditions(objs):
+    out = []
+    for k in objs:
+        if objs[k]["type"] == "switch":
+            out.append((k, "on", True))
+            out.append((k, "on", False))
+    return out
+
+
+def candidates(objs, conds=False):
     doors = [k for k in objs if objs[k]["type"] == "door"]
     others = [k for k in objs if objs[k]["type"] != "door"]
     options = []
@@ -101,7 +115,10 @@ def candidates(objs):
         rules = []
         for event in ["interact", "enter"]:
             for name in others:
-                rules.append((event, name, door, "open", True))
+                rules.append((event, name, door, "open", True, None))
+                if conds:
+                    for c in conditions(objs):
+                        rules.append((event, name, door, "open", True, c))
         options.append(rules)
     return options
 
@@ -135,6 +152,8 @@ def experiments(walls, goal, state, hyps):
 
 
 def pick(strategy, walls, goal, state, hyps, rng):
+    if not hyps:
+        return None
     if strategy in ("info", "nearest"):
         exps = experiments(walls, goal, state, hyps)
         if exps:
@@ -165,10 +184,10 @@ def pick(strategy, walls, goal, state, hyps, rng):
     return None
 
 
-def solve(m, true_rules, strategy="first", seed=0, verbose=False):
+def solve(m, true_rules, strategy="first", seed=0, conds=False, verbose=False):
     rng = random.Random(seed)
     walls, goal, state = load(m)
-    hyps = list(product(*candidates(state["objs"])))
+    hyps = list(product(*candidates(state["objs"], conds)))
     if verbose:
         print(len(hyps), "hypotheses")
     steps = 0
