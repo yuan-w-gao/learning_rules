@@ -37,7 +37,7 @@ def clone(state):
     }
 
 
-def step(walls, goal, state, action, rules):
+def move(walls, state, action):
     s = clone(state)
     events = []
     if action == "interact":
@@ -51,14 +51,19 @@ def step(walls, goal, state, action, rules):
         x, y = s["agent"]
         nxt = (x + dx, y + dy)
         if nxt in walls:
-            return s
+            return s, events
         for o in s["objs"].values():
             if o["type"] == "door" and o["pos"] == nxt and not o["open"]:
-                return s
+                return s, events
         s["agent"] = nxt
         for name, o in s["objs"].items():
             if o["pos"] == nxt:
                 events.append(("enter", name))
+    return s, events
+
+
+def step(walls, goal, state, action, rules):
+    s, events = move(walls, state, action)
     for event, obj, target, prop, value, cond in rules:
         if (event, obj) not in events:
             continue
