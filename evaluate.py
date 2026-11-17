@@ -1,9 +1,8 @@
 import time
 
 from generator import generate
-from main import solve
-
-STRATEGIES = ["first", "random", "shortest", "info", "nearest"]
+from agent import solve
+from strategies import STRATEGIES
 
 
 def evaluate(n, world_conds=False, agent_conds=False, strategies=STRATEGIES):

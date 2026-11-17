@@ -1,6 +1,8 @@
 import random
 
-from main import bfs, candidates, conditions, load
+from planner import bfs
+from rules import candidates, conditions
+from world import load
 
 
 def generate(seed, conds=False):
